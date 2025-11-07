@@ -15,7 +15,7 @@ This package:
 ## Installation
 
 ```bash
-go get github.com/polymarket-gamma-go
+go get github.com/CalderWhite/polymarket-gamma-go
 ```
 
 ## Usage
