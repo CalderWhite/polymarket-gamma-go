@@ -29,12 +29,12 @@ import (
     "fmt"
     "log"
     
-    polymarket "github.com/polymarket-gamma-go"
+    polymarket_gamma "github.com/polymarket-gamma-go"
 )
 
 func main() {
     // Create a client with default settings
-    client := polymarket.NewClient(nil)
+    client := polymarket_gamma.NewClient(nil)
     
     // Fetch events by IDs (query uses integers, response contains string IDs)
     response, err := client.GetEventsByIDs([]int{2890, 2891, 2892})
