@@ -81,11 +81,11 @@ func (c *Client) GetEventsByIDs(ids []int) (*GetEventsResponse, error) {
 }
 
 // GetEventsByPage fetches events with pagination from the Polymarket Gamma API
-func (c *Client) GetEventsByPage(offset, limit int) (*GetEventsResponse, error) {
+func (c *Client) GetEventsByPage(offset, limit int, ascending bool) (*GetEventsResponse, error) {
 	queryParams := url.Values{}
 	queryParams.Set("offset", strconv.Itoa(offset))
 	queryParams.Set("limit", strconv.Itoa(limit))
-	queryParams.Set("ascending", "true")
+	queryParams.Set("ascending", strconv.FormatBool(ascending))
 	queryParams.Set("sortBy", "id")
 
 	return c.getEvents(queryParams)

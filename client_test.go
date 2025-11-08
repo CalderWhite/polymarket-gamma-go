@@ -187,7 +187,7 @@ func TestGetLatestEvents(t *testing.T) {
 	})
 
 	// Test fetching latest events with pagination
-	response, err := client.GetEventsByPage(0, 10)
+	response, err := client.GetEventsByPage(0, 10, true)
 
 	require.NoError(t, err)
 	require.NotNil(t, response)
@@ -393,6 +393,74 @@ func TestGetEventsValidationError(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, response)
 	assert.Contains(t, err.Error(), "validation failed")
+}
+
+func TestGetEventsByPageAscendingVsDescending(t *testing.T) {
+	// Create a mock server that returns events in different order based on ascending parameter
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request
+		assert.Equal(t, "/events", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		// Check query parameters
+		query := r.URL.Query()
+		ascending := query.Get("ascending")
+
+		var events []Event
+		if ascending == "true" {
+			// Return events in ascending order by ID
+			events = []Event{
+				mockEvent("1"),
+				mockEvent("2"),
+				mockEvent("3"),
+			}
+		} else if ascending == "false" {
+			// Return events in descending order by ID
+			events = []Event{
+				mockEvent("3"),
+				mockEvent("2"),
+				mockEvent("1"),
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(events)
+	}))
+	defer server.Close()
+
+	// Create client with mock server
+	client := NewClient(&ClientConfig{
+		BaseURL: server.URL,
+	})
+
+	// Test ascending order
+	t.Run("Ascending", func(t *testing.T) {
+		response, err := client.GetEventsByPage(0, 10, true)
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		assert.Len(t, response.Events, 3)
+
+		// Verify ascending order
+		assert.Equal(t, "1", response.Events[0].ID)
+		assert.Equal(t, "2", response.Events[1].ID)
+		assert.Equal(t, "3", response.Events[2].ID)
+	})
+
+	// Test descending order
+	t.Run("Descending", func(t *testing.T) {
+		response, err := client.GetEventsByPage(0, 10, false)
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		assert.Len(t, response.Events, 3)
+
+		// Verify descending order
+		assert.Equal(t, "3", response.Events[0].ID)
+		assert.Equal(t, "2", response.Events[1].ID)
+		assert.Equal(t, "1", response.Events[2].ID)
+	})
 }
 
 func TestNestedTypes(t *testing.T) {

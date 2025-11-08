@@ -56,7 +56,10 @@ func main() {
 This is primarily for event/market discovery.
 
 ```go
-// Fetch the latest 10 events
-response, err := client.GetEventsByPage(0, 10)
+// Fetch the latest 10 events (by ID)
+response, err := client.GetEventsByPage(0, 10, false)
+
+// Fetch events in order
+response, err := client.GetEventsByPage(0, 10, true)
 ```
 

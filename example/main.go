@@ -25,7 +25,7 @@ func main() {
 
 	// Example 2: Fetch with pagination
 	fmt.Println("\n=== Example 2: Fetch latest events with pagination ===")
-	response, err = client.GetEventsByPage(0, 5)
+	response, err = client.GetEventsByPage(0, 5, false)
 	if err != nil {
 		log.Printf("Error fetching events: %v\n", err)
 	} else {

@@ -15,7 +15,7 @@ func TestEventFieldsParsing(t *testing.T) {
 	client := NewClient(nil)
 
 	// Fetch events via pagination
-	response, err := client.GetEventsByPage(0, 5)
+	response, err := client.GetEventsByPage(0, 5, true)
 
 	require.NoError(t, err)
 	require.NotNil(t, response)

@@ -12,7 +12,7 @@ func TestGetRealEventsByPagination(t *testing.T) {
 	g := NewWithT(t)
 	client := NewClient(nil)
 
-	response, err := client.GetEventsByPage(0, 10)
+	response, err := client.GetEventsByPage(0, 10, true)
 
 	g.Expect(err).To(BeNil())
 	g.Expect(response).ToNot(BeNil())
