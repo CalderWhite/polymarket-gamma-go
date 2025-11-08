@@ -86,7 +86,7 @@ func (c *Client) GetEventsByPage(offset, limit int, ascending bool) (*GetEventsR
 	queryParams.Set("offset", strconv.Itoa(offset))
 	queryParams.Set("limit", strconv.Itoa(limit))
 	queryParams.Set("ascending", strconv.FormatBool(ascending))
-	queryParams.Set("sortBy", "id")
+	queryParams.Set("order", "id")
 
 	return c.getEvents(queryParams)
 }
