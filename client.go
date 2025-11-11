@@ -1,7 +1,6 @@
 package polymarket_gamma
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -122,7 +122,7 @@ func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 	}
 
 	var events []Event
-	if err := json.Unmarshal(body, &events); err != nil {
+	if err := sonic.Unmarshal(body, &events); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
