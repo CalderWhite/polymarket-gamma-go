@@ -166,7 +166,7 @@ func TestGetLatestEvents(t *testing.T) {
 		assert.Equal(t, "0", query.Get("offset"))
 		assert.Equal(t, "10", query.Get("limit"))
 		assert.Equal(t, "true", query.Get("ascending"))
-		assert.Equal(t, "id", query.Get("sortBy"))
+		assert.Equal(t, "id", query.Get("order"))
 
 		// Return mock events (API returns string IDs)
 		events := []Event{
