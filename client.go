@@ -91,6 +91,17 @@ func (c *Client) GetEventsByPage(offset, limit int, ascending bool) (*GetEventsR
 	return c.getEvents(queryParams)
 }
 
+func (c *Client) GetActiveEventsByPage(offset, limit int, ascending bool) (*GetEventsResponse, error) {
+	queryParams := url.Values{}
+	queryParams.Set("offset", strconv.Itoa(offset))
+	queryParams.Set("limit", strconv.Itoa(limit))
+	queryParams.Set("ascending", strconv.FormatBool(ascending))
+	queryParams.Set("order", "id")
+	queryParams.Set("closed", "false") // polymarket doesn't seem to use the `active` column
+
+	return c.getEvents(queryParams)
+}
+
 // getEvents is the private implementation that fetches events from the Polymarket Gamma API
 func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 

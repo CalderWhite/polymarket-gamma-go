@@ -463,6 +463,59 @@ func TestGetEventsByPageAscendingVsDescending(t *testing.T) {
 	})
 }
 
+func TestGetActiveEventsByPage(t *testing.T) {
+	// Create a mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request
+		assert.Equal(t, "/events", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		// Check query parameters
+		query := r.URL.Query()
+		assert.Equal(t, "5", query.Get("offset"))
+		assert.Equal(t, "20", query.Get("limit"))
+		assert.Equal(t, "false", query.Get("ascending"))
+		assert.Equal(t, "id", query.Get("order"))
+		assert.Equal(t, "false", query.Get("closed"))
+
+		// Return mock active events
+		events := []Event{
+			mockEvent("10"),
+			mockEvent("11"),
+		}
+		// Set the events as active (not closed)
+		events[0].Closed = false
+		events[0].Active = true
+		events[1].Closed = false
+		events[1].Active = true
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(events)
+	}))
+	defer server.Close()
+
+	// Create client with mock server
+	client := NewClient(&ClientConfig{
+		BaseURL: server.URL,
+	})
+
+	// Test fetching active events with pagination
+	response, err := client.GetActiveEventsByPage(5, 20, false)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	assert.Len(t, response.Events, 2)
+	assert.Equal(t, "10", response.Events[0].ID)
+	assert.Equal(t, "11", response.Events[1].ID)
+
+	// Verify that the events are active
+	assert.False(t, response.Events[0].Closed)
+	assert.True(t, response.Events[0].Active)
+	assert.False(t, response.Events[1].Closed)
+	assert.True(t, response.Events[1].Active)
+}
+
 func TestNestedTypes(t *testing.T) {
 	// Create a mock server that returns events with nested types like ImageOptimization
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
