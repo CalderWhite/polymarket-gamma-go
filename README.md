@@ -2,6 +2,8 @@
 
 A Go client for interacting with the Polymarket Gamma structure API.
 
+(because I found Typescript & Python slow)
+
 # Notes
 
 This package:
