@@ -37,11 +37,13 @@
 package polymarket_gamma
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -152,6 +154,9 @@ func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Accept gzip encoding to reduce bandwidth
+	req.Header.Set("Accept-Encoding", "gzip")
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -163,7 +168,18 @@ func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 		return nil, fmt.Errorf("failed to fetch events: %d %s - %s", resp.StatusCode, resp.Status, string(body))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Handle gzip decompression if needed
+	var reader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		gzipReader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzipReader.Close()
+		reader = gzipReader
+	}
+
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
