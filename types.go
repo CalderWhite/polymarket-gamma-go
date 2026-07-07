@@ -210,3 +210,11 @@ type Market struct {
 type GetEventsResponse struct {
 	Events []Event `json:"events"`
 }
+
+// GetEventsKeysetResponse represents the response from the events keyset endpoint
+type GetEventsKeysetResponse struct {
+	Events []Event `json:"events"`
+	// NextCursor is the opaque cursor for fetching the next page. It is empty
+	// once the final page has been reached.
+	NextCursor string `json:"next_cursor"`
+}

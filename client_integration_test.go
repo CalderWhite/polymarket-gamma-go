@@ -115,3 +115,25 @@ func TestGetExistingEvents(t *testing.T) {
 	g.Expect(event2891.Tags).To(HaveLen(1))
 	g.Expect(event2891.Tags[0].Label).To(Equal("All"))
 }
+
+// TestGetRealEventsByKeysetPagination tests keyset pagination against the real API,
+// verifying that the cursor advances across pages
+func TestGetRealEventsByKeysetPagination(t *testing.T) {
+	g := NewWithT(t)
+	client := NewClient(nil)
+
+	page1, err := client.GetEventsByKeysetPage("", 100)
+
+	g.Expect(err).To(BeNil())
+	g.Expect(page1).ToNot(BeNil())
+	g.Expect(page1.Events).ToNot(BeEmpty())
+	g.Expect(page1.NextCursor).ToNot(BeEmpty())
+
+	page2, err := client.GetEventsByKeysetPage(page1.NextCursor, 100)
+
+	g.Expect(err).To(BeNil())
+	g.Expect(page2).ToNot(BeNil())
+	g.Expect(page2.Events).ToNot(BeEmpty())
+	// Pages must not overlap: keyset pagination advances past the first page
+	g.Expect(page2.Events[0].ID).ToNot(Equal(page1.Events[0].ID))
+}

@@ -140,6 +140,41 @@ func (c *Client) GetActiveEventsByPage(offset, limit int, ascending bool) (*GetE
 	return c.getEvents(queryParams)
 }
 
+// GetEventsByKeysetPage fetches a single page of events from the Polymarket Gamma API
+// using keyset pagination (/events/keyset). Pass an empty afterCursor to start from the
+// first page, then pass the NextCursor from each response to fetch the following page.
+// The returned NextCursor is empty once the final page has been reached.
+//
+// The API caps page sizes (100 rows as of July 2026), so a page may contain fewer
+// events than the requested limit even when more pages remain — always use NextCursor
+// to detect the end of the result set.
+//
+// Polymarket capped /events offset pagination (422 above ~2500, pages silently
+// truncated to 100 rows), so keyset pagination is the only way to enumerate the
+// full event set. Events are returned in ascending id order.
+func (c *Client) GetEventsByKeysetPage(afterCursor string, limit int) (*GetEventsKeysetResponse, error) {
+	queryParams := url.Values{}
+	queryParams.Set("limit", strconv.Itoa(limit))
+	if afterCursor != "" {
+		queryParams.Set("after_cursor", afterCursor)
+	}
+
+	return c.getEventsKeyset(queryParams)
+}
+
+// GetActiveEventsByKeysetPage is GetEventsByKeysetPage restricted to events that have
+// not closed yet.
+func (c *Client) GetActiveEventsByKeysetPage(afterCursor string, limit int) (*GetEventsKeysetResponse, error) {
+	queryParams := url.Values{}
+	queryParams.Set("limit", strconv.Itoa(limit))
+	if afterCursor != "" {
+		queryParams.Set("after_cursor", afterCursor)
+	}
+	queryParams.Set("closed", "false") // polymarket doesn't seem to use the `active` column
+
+	return c.getEventsKeyset(queryParams)
+}
+
 // getEvents is the private implementation that fetches events from the Polymarket Gamma API
 func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 
@@ -212,4 +247,77 @@ func (c *Client) getEvents(queryParams url.Values) (*GetEventsResponse, error) {
 	return &GetEventsResponse{
 		Events: events,
 	}, nil
+}
+
+// getEventsKeyset is the private implementation that fetches a single keyset page
+// from the Polymarket Gamma API's /events/keyset endpoint
+func (c *Client) getEventsKeyset(queryParams url.Values) (*GetEventsKeysetResponse, error) {
+
+	// Build URL
+	apiURL := fmt.Sprintf("%s/events/keyset", c.baseURL)
+	if len(queryParams) > 0 {
+		apiURL = fmt.Sprintf("%s?%s", apiURL, queryParams.Encode())
+	}
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Accept gzip encoding to reduce bandwidth
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to fetch events: %d %s - %s", resp.StatusCode, resp.Status, string(body))
+	}
+
+	// Handle gzip decompression if needed
+	var reader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		gzipReader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzipReader.Close()
+		reader = gzipReader
+	}
+
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response GetEventsKeysetResponse
+	if err := sonic.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	for i, event := range response.Events {
+		// Validate event (skipMissingProperties and whitelist:false equivalent)
+		if err := c.validator.Struct(event); err != nil {
+			if validationErrs, ok := err.(validator.ValidationErrors); ok {
+				return nil, fmt.Errorf("validation failed for event %d: %v", i, validationErrs)
+			}
+			return nil, fmt.Errorf("validation failed for event %d: %w", i, err)
+		}
+
+		// Validate markets
+		for j, market := range event.Markets {
+			if err := c.validator.Struct(market); err != nil {
+				if validationErrs, ok := err.(validator.ValidationErrors); ok {
+					return nil, fmt.Errorf("validation failed for market %d in event %d: %v", j, i, validationErrs)
+				}
+				return nil, fmt.Errorf("validation failed for market %d in event %d: %w", j, i, err)
+			}
+		}
+	}
+
+	return &response, nil
 }

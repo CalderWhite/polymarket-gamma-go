@@ -641,3 +641,89 @@ func TestNestedTypes(t *testing.T) {
 	assert.Equal(t, 200.0, market.ImageOptimized.ImageSizeKbSource)
 	assert.Equal(t, 50.0, market.ImageOptimized.ImageSizeKbOptimized)
 }
+
+func TestGetEventsByKeysetPage(t *testing.T) {
+	// Create a mock server that pages through events using an opaque cursor
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request
+		assert.Equal(t, "/events/keyset", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		query := r.URL.Query()
+		assert.Equal(t, "100", query.Get("limit"))
+
+		var response GetEventsKeysetResponse
+		switch query.Get("after_cursor") {
+		case "":
+			response = GetEventsKeysetResponse{
+				Events:     []Event{mockEvent("1"), mockEvent("2")},
+				NextCursor: "cursor-page-2",
+			}
+		case "cursor-page-2":
+			response = GetEventsKeysetResponse{
+				Events:     []Event{mockEvent("3")},
+				NextCursor: "",
+			}
+		default:
+			t.Errorf("unexpected after_cursor: %s", query.Get("after_cursor"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewClient(&ClientConfig{
+		BaseURL: server.URL,
+	})
+
+	// First page: empty cursor
+	page1, err := client.GetEventsByKeysetPage("", 100)
+	require.NoError(t, err)
+	require.NotNil(t, page1)
+	assert.Len(t, page1.Events, 2)
+	assert.Equal(t, "1", page1.Events[0].ID)
+	assert.Equal(t, "2", page1.Events[1].ID)
+	assert.Equal(t, "cursor-page-2", page1.NextCursor)
+
+	// Second page: cursor from the first response
+	page2, err := client.GetEventsByKeysetPage(page1.NextCursor, 100)
+	require.NoError(t, err)
+	require.NotNil(t, page2)
+	assert.Len(t, page2.Events, 1)
+	assert.Equal(t, "3", page2.Events[0].ID)
+	assert.Equal(t, "", page2.NextCursor)
+}
+
+func TestGetActiveEventsByKeysetPage(t *testing.T) {
+	// Create a mock server that verifies the closed=false filter is sent
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/events/keyset", r.URL.Path)
+
+		query := r.URL.Query()
+		assert.Equal(t, "false", query.Get("closed"))
+		assert.Equal(t, "50", query.Get("limit"))
+
+		response := GetEventsKeysetResponse{
+			Events:     []Event{mockEvent("10")},
+			NextCursor: "",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewClient(&ClientConfig{
+		BaseURL: server.URL,
+	})
+
+	response, err := client.GetActiveEventsByKeysetPage("", 50)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	assert.Len(t, response.Events, 1)
+	assert.Equal(t, "10", response.Events[0].ID)
+	assert.Equal(t, "", response.NextCursor)
+}
